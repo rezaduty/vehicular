@@ -1,0 +1,85 @@
+Autonomous Driving / Perception Projects
+Domain Adaptation from Simulation to Reality
+
+Train a model on CARLA (simulated data) and test it on KITTI (real-world data).
+
+
+Final Project and Presentation: Vehicular Technology Project
+Objective
+The main goal of this project is to explore object tagging in video footage and to investigate how parallel object detection across multiple patches can enhance the identification of smaller objects within a larger image. This process should maintain the overall resolution of the image. Alternatively, you may select any one of the tasks outlined in the task overview below.
+
+Dataset Information
+Dataset Link
+You will be using the dataset available at: suryagutta/Autonomous-Vehicles-Datasets. This resource provides a comprehensive list of datasets related to autonomous vehicles, including various types of data such as visual camera footage, thermal images, LiDAR data, and radar information.
+
+Dataset Description
+When selecting your dataset, ensure that it meets the following criteria:
+
+Diversity: Choose one of the largest and most diverse video datasets available for autonomous vehicles. This will help ensure that your project is robust and applicable to real-world scenarios.
+
+Content: The dataset should include video clips or LiDAR point clouds collected from various rides in urban environments or different road scenarios. Look for datasets that cover a range of regions to enhance the variety of your analysis.
+
+Scene Types: Ensure that the dataset contains diverse scene types, such as:
+
+City streets
+Residential areas
+Highways
+Weather Conditions: It is beneficial to use videos recorded under different weather conditions and at various times of the day. This will allow you to test the robustness of your model in varying environments.
+
+Project Task Overview
+You have the flexibility to choose one of the following tasks for your project:
+
+Object Detection and Segmentation:
+
+This task involves developing a model that can detect multiple objects and perform segmentation in a moving video or a sequence of point clouds.
+Your model should include features such as object tracking and trajectory generation.
+Examples of specific tasks you might consider include:
+Image tagging
+Lane detection
+Drivable area segmentation
+Road object detection
+Semantic segmentation
+Instance segmentation
+Multi-object detection tracking
+Multi-object segmentation tracking
+Trajectory generation
+Unsupervised Road Object Detection:
+
+Utilize the LOST and MOST algorithms to detect road objects in images without the need for labeled data.
+Unsupervised LiDAR Point Cloud Segmentation:
+
+Implement algorithms such as SONATA or any other suitable method to segment LiDAR point clouds.
+Autoencoder Architectures:
+
+Focus on developing autoencoder architectures for compressing image and LiDAR data effectively.
+Road Object Detection and Depth Estimation:
+
+Work on detecting road objects while also estimating depth in images, incorporating object tracking and velocity estimation.
+Resources
+Video Reference
+For additional guidance and detailed explanations, please refer to my last video recording. This resource will provide you with insights and examples that can help you in your project.
+
+Tools
+You are encouraged to use the following tools for your project:
+
+TensorFlow
+PyTorch
+Keras
+Optional Deployments
+If you wish to enhance your project further, consider using the following deployment options:
+
+FastAPI
+Cloud Application Platforms (e.g., Heroku)
+Streamlit
+Cloud Computing Services
+APIs (e.g., Google Cloud)
+Final Submissions
+At the conclusion of your project, you will need to submit the following items:
+
+Project Technical Report: This report should detail your methodology, findings, and any challenges you encountered during the project. Be sure to include relevant data and analysis to support your conclusions.
+
+Project Presentation: Prepare a presentation that summarizes your project, highlighting the desired outcomes and key findings. This should be engaging and informative, suitable for sharing with your peers.
+
+Summary of 3 Research Papers: Select three research papers relevant to your project and provide a concise summary of each. This should include the main findings and how they relate to your work.
+
+By following these detailed instructions, you will be well-equipped to complete your project successfully. Good luck, and I look forward to seeing your innovative work!

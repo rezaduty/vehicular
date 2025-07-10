@@ -1,0 +1,15 @@
+Scenario: domain_adaptation_sim
+Description: Simulation-style scene for domain adaptation testing
+Total Objects: 6
+Cars: 3
+Pedestrians: 1
+Traffic Signs: 2
+Small Objects: 3
+
+Object Details:
+1. car (small) - BBox: [1150, 219, 1201, 244]
+2. car (large) - BBox: [400, 254, 520, 321]
+3. car (large) - BBox: [1045, 234, 1135, 292]
+4. pedestrian (medium) - BBox: [944, 267, 965, 317]
+5. traffic_sign (small) - BBox: [836, 150, 875, 189]
+6. traffic_sign (small) - BBox: [142, 168, 173, 199]

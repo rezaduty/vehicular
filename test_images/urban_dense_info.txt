@@ -1,0 +1,21 @@
+Scenario: urban_dense
+Description: Dense urban scene with many small objects
+Total Objects: 12
+Cars: 5
+Pedestrians: 3
+Traffic Signs: 4
+Small Objects: 6
+
+Object Details:
+1. car (small) - BBox: [589, 214, 626, 245]
+2. car (small) - BBox: [502, 223, 539, 246]
+3. car (large) - BBox: [1048, 285, 1155, 336]
+4. car (large) - BBox: [713, 254, 794, 311]
+5. car (large) - BBox: [410, 247, 514, 300]
+6. pedestrian (medium) - BBox: [578, 324, 603, 371]
+7. pedestrian (medium) - BBox: [1064, 276, 1085, 332]
+8. pedestrian (medium) - BBox: [1185, 254, 1210, 309]
+9. traffic_sign (small) - BBox: [280, 167, 319, 206]
+10. traffic_sign (small) - BBox: [932, 199, 962, 229]
+11. traffic_sign (small) - BBox: [1074, 188, 1100, 214]
+12. traffic_sign (small) - BBox: [256, 146, 287, 177]

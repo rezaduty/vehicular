@@ -1,0 +1,25 @@
+Scenario: small_objects_challenge
+Description: Scene designed to test small object detection
+Total Objects: 16
+Cars: 6
+Pedestrians: 4
+Traffic Signs: 6
+Small Objects: 9
+
+Object Details:
+1. car (small) - BBox: [413, 226, 461, 250]
+2. car (small) - BBox: [527, 230, 558, 254]
+3. car (small) - BBox: [960, 238, 991, 269]
+4. car (large) - BBox: [340, 257, 423, 311]
+5. car (large) - BBox: [279, 284, 363, 344]
+6. car (large) - BBox: [285, 286, 390, 351]
+7. pedestrian (medium) - BBox: [625, 262, 641, 306]
+8. pedestrian (medium) - BBox: [619, 304, 640, 348]
+9. pedestrian (medium) - BBox: [1047, 290, 1063, 346]
+10. pedestrian (medium) - BBox: [935, 280, 957, 321]
+11. traffic_sign (small) - BBox: [57, 132, 78, 153]
+12. traffic_sign (small) - BBox: [800, 210, 821, 231]
+13. traffic_sign (small) - BBox: [289, 183, 311, 205]
+14. traffic_sign (small) - BBox: [420, 199, 441, 220]
+15. traffic_sign (small) - BBox: [660, 158, 685, 183]
+16. traffic_sign (small) - BBox: [875, 164, 902, 191]

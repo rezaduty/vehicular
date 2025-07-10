@@ -1,0 +1,12 @@
+Scenario: highway_sparse
+Description: Highway scene with sparse larger objects
+Total Objects: 3
+Cars: 2
+Pedestrians: 0
+Traffic Signs: 1
+Small Objects: 1
+
+Object Details:
+1. car (large) - BBox: [741, 243, 846, 291]
+2. car (large) - BBox: [313, 257, 393, 313]
+3. traffic_sign (small) - BBox: [649, 144, 683, 178]

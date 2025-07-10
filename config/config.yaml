@@ -1,0 +1,121 @@
+# Autonomous Driving Perception Project Configuration
+
+project:
+  name: "vehicular_technology_perception"
+  version: "1.0.0"
+  description: "Autonomous driving perception with object detection, tracking, and domain adaptation"
+
+# Dataset Configuration
+data:
+  datasets:
+    kitti:
+      path: "data/kitti"
+      type: "real_world"
+      modalities: ["camera", "lidar"]
+    carla:
+      path: "data/carla"
+      type: "simulation"
+      modalities: ["camera", "lidar", "semantic"]
+    
+  image:
+    height: 384
+    width: 1280
+    channels: 3
+    
+  lidar:
+    max_points: 16384
+    point_features: 4  # x, y, z, intensity
+    
+  augmentation:
+    horizontal_flip: 0.5
+    brightness: 0.2
+    contrast: 0.2
+    rotation: 5.0
+    
+# Model Configuration
+models:
+  object_detection:
+    architecture: "yolov8"
+    backbone: "efficientnet-b3"
+    num_classes: 10
+    confidence_threshold: 0.5
+    nms_threshold: 0.4
+    
+  segmentation:
+    architecture: "deeplabv3plus"
+    backbone: "resnet50"
+    num_classes: 19
+    
+  tracking:
+    method: "deep_sort"
+    max_age: 30
+    min_hits: 3
+    
+  domain_adaptation:
+    method: "dann"  # Domain Adversarial Neural Network
+    lambda_grl: 1.0
+    
+  autoencoder:
+    latent_dim: 256
+    compression_ratio: 0.1
+    
+# Training Configuration
+training:
+  batch_size: 8
+  epochs: 100
+  learning_rate: 0.001
+  optimizer: "adamw"
+  weight_decay: 0.01
+  scheduler: "cosine"
+  
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+    
+  mixed_precision: true
+  gradient_clip: 1.0
+  
+# Inference Configuration
+inference:
+  patch_detection:
+    enabled: true
+    patch_size: [192, 192]
+    overlap: 0.2
+    min_object_size: 20
+    
+  parallel_processing:
+    num_workers: 4
+    batch_size: 16
+    
+# Deployment Configuration
+deployment:
+  api:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+    
+  streamlit:
+    host: "0.0.0.0"
+    port: 8501
+    
+# Evaluation Configuration
+evaluation:
+  metrics:
+    detection: ["mAP", "mAP50", "mAP75"]
+    segmentation: ["mIoU", "pixel_accuracy"]
+    tracking: ["MOTA", "MOTP", "IDF1"]
+    
+  visualization:
+    save_predictions: true
+    output_dir: "outputs/visualizations"
+    
+# Logging Configuration
+logging:
+  level: "INFO"
+  wandb:
+    enabled: true
+    project: "autonomous_driving_perception"
+    
+  tensorboard:
+    enabled: true
+    log_dir: "logs/tensorboard" 

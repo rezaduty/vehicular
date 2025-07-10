@@ -1,0 +1,18 @@
+Scenario: mixed_objects
+Description: Mixed scene for comprehensive testing
+Total Objects: 9
+Cars: 4
+Pedestrians: 2
+Traffic Signs: 3
+Small Objects: 5
+
+Object Details:
+1. car (small) - BBox: [1021, 202, 1072, 224]
+2. car (small) - BBox: [809, 194, 865, 220]
+3. car (large) - BBox: [799, 272, 897, 327]
+4. car (large) - BBox: [995, 243, 1113, 312]
+5. pedestrian (medium) - BBox: [1135, 288, 1154, 347]
+6. pedestrian (medium) - BBox: [1148, 266, 1171, 323]
+7. traffic_sign (small) - BBox: [1062, 207, 1089, 234]
+8. traffic_sign (small) - BBox: [219, 153, 251, 185]
+9. traffic_sign (small) - BBox: [220, 157, 257, 194]
