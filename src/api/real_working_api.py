@@ -4,9 +4,10 @@ Real Working API with Actual YOLOv8 Detection
 Uses ultralytics YOLOv8 for real object detection
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict
 import torch
@@ -18,6 +19,10 @@ import time
 import tempfile
 import os
 import json
+import asyncio
+import threading
+import re
+from pathlib import Path
 
 # Try to import YOLO
 try:
@@ -48,6 +53,17 @@ class DetectionRequest(BaseModel):
     use_patch_detection: bool = True
     confidence_threshold: float = 0.5
     nms_threshold: float = 0.4
+
+class VideoProcessingRequest(BaseModel):
+    use_patch_detection: bool = True
+    confidence_threshold: float = 0.5
+    nms_threshold: float = 0.4
+    enable_tracking: bool = True
+    show_confidence: bool = True
+    show_class_names: bool = True
+    show_tracking_ids: bool = True
+    bbox_thickness: int = 2
+    output_format: str = "mp4v"
 
 class DomainAdaptationRequest(BaseModel):
     source_dataset: str = "carla"
@@ -196,6 +212,8 @@ async def root():
         "endpoints": {
             "detection": "/detect",
             "patch_detection": "/detect_patches",
+            "video_processing": "/process_video",
+            "video_upload": "/upload_video",
             "domain_adaptation": "/domain_adapt",
             "unsupervised_detection": "/detect_unsupervised",
             "health": "/health"
@@ -399,21 +417,571 @@ async def detect_unsupervised(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unsupervised detection failed: {str(e)}")
 
+@app.post("/upload_video")
+async def upload_video_for_processing(
+    file: UploadFile = File(...),
+    use_patch_detection: bool = Query(True),
+    confidence_threshold: float = Query(0.5),
+    nms_threshold: float = Query(0.4),
+    enable_tracking: bool = Query(True),
+    show_confidence: bool = Query(True),
+    show_class_names: bool = Query(True),
+    show_tracking_ids: bool = Query(True),
+    bbox_thickness: int = Query(2),
+    output_format: str = Query("mp4v")
+):
+    """Upload video file for processing and return video info"""
+    try:
+        # Check if file is a video by extension and content type
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
+        file_extension = Path(file.filename).suffix.lower() if file.filename else ""
+        
+        # Check content type (handle None case) and file extension
+        is_video_content = file.content_type and file.content_type.startswith("video/")
+        is_video_extension = file_extension in video_extensions
+        
+        if not (is_video_content or is_video_extension):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File must be a video. Supported formats: {', '.join(video_extensions)}"
+            )
+        
+        # Save uploaded video to temporary file
+        temp_dir = tempfile.mkdtemp()
+        video_path = os.path.join(temp_dir, f"uploaded_{int(time.time())}.mp4")
+        
+        with open(video_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Get video information
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise HTTPException(status_code=400, detail="Invalid video file")
+        
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps if fps > 0 else 0
+        
+        cap.release()
+        
+        # Store video path and processing params for later processing
+        video_id = f"video_{int(time.time())}"
+        
+        # In production, you'd store this in a database or cache
+        # For now, we'll store in a global dict (not recommended for production)
+        if not hasattr(app, 'uploaded_videos'):
+            app.uploaded_videos = {}
+        
+        # Create processing parameters dict
+        processing_params = {
+            'use_patch_detection': use_patch_detection,
+            'confidence_threshold': confidence_threshold,
+            'nms_threshold': nms_threshold,
+            'enable_tracking': enable_tracking,
+            'show_confidence': show_confidence,
+            'show_class_names': show_class_names,
+            'show_tracking_ids': show_tracking_ids,
+            'bbox_thickness': bbox_thickness,
+            'output_format': output_format
+        }
+        
+        app.uploaded_videos[video_id] = {
+            'path': video_path,
+            'params': processing_params,
+            'info': {
+                'filename': file.filename,
+                'size': len(content),
+                'width': width,
+                'height': height,
+                'fps': fps,
+                'frame_count': frame_count,
+                'duration': duration
+            }
+        }
+        
+        return {
+            "success": True,
+            "video_id": video_id,
+            "video_info": {
+                "filename": file.filename,
+                "size_mb": len(content) / (1024 * 1024),
+                "resolution": f"{width}x{height}",
+                "fps": fps,
+                "duration": f"{duration:.1f}s",
+                "frame_count": frame_count
+            },
+            "message": "Video uploaded successfully. Use /process_video endpoint to start processing."
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video upload failed: {str(e)}")
+
+@app.post("/process_video/{video_id}")
+async def process_video(video_id: str):
+    """Start video processing in background"""
+    try:
+        if not hasattr(app, 'uploaded_videos') or video_id not in app.uploaded_videos:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        video_data = app.uploaded_videos[video_id]
+        
+        # Initialize status immediately before starting background task
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        app.video_status[video_id] = {
+            "video_id": video_id,
+            "status": "starting",
+            "progress": 0,
+            "current_frame": 0,
+            "total_frames": video_data['info']['frame_count'],
+            "detections_count": 0,
+            "start_time": time.time(),
+            "message": "Video processing is starting..."
+        }
+        
+        # Start video processing task using asyncio without blocking
+        import asyncio
+        asyncio.create_task(process_video_background(
+            video_id,
+            video_data['path'],
+            video_data['params'],
+            video_data['info']
+        ))
+        
+        return {
+            "success": True,
+            "message": "Video processing started",
+            "video_id": video_id,
+            "status": "starting"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start video processing: {str(e)}")
+
+@app.get("/video_status/{video_id}")
+async def get_video_processing_status(video_id: str):
+    """Get video processing status"""
+    try:
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        if video_id not in app.video_status:
+            return {
+                "video_id": video_id,
+                "status": "not_found",
+                "message": "Video processing status not available"
+            }
+        
+        return app.video_status[video_id]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
+
+@app.get("/download_processed_video/{video_id}")
+async def download_processed_video(video_id: str):
+    """Download processed video"""
+    try:
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        if video_id not in app.video_status:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        status = app.video_status[video_id]
+        
+        if status['status'] != 'completed':
+            raise HTTPException(status_code=400, detail="Video processing not completed")
+        
+        output_path = status.get('output_path')
+        if not output_path or not os.path.exists(output_path):
+            raise HTTPException(status_code=404, detail="Processed video file not found")
+        
+        return FileResponse(
+            output_path,
+            media_type="video/mp4",
+            filename=f"processed_{video_id}.mp4"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+@app.get("/stream_processed_video/{video_id}")
+@app.head("/stream_processed_video/{video_id}")
+async def stream_processed_video(video_id: str, request: Request):
+    """Stream processed video for web player (supports both GET and HEAD requests)"""
+    try:
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        if video_id not in app.video_status:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        status = app.video_status[video_id]
+        
+        if status['status'] != 'completed':
+            raise HTTPException(status_code=400, detail="Video processing not completed")
+        
+        output_path = status.get('output_path')
+        if not output_path or not os.path.exists(output_path):
+            raise HTTPException(status_code=404, detail="Processed video file not found")
+        
+        # For HEAD requests, return headers only
+        if request.method == "HEAD":
+            file_size = os.path.getsize(output_path)
+            return Response(
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Content-Length": str(file_size),
+                    "Content-Disposition": "inline",
+                    "Cache-Control": "public, max-age=3600",
+                    "Accept-Ranges": "bytes"
+                }
+            )
+        
+        # For GET requests, handle range requests for video streaming
+        file_size = os.path.getsize(output_path)
+        range_header = request.headers.get('Range')
+        
+        if range_header:
+            # Handle range requests for video streaming
+            try:
+                # Parse range header (e.g., "bytes=0-1023")
+                range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+                if range_match:
+                    start = int(range_match.group(1))
+                    end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+                    
+                    # Ensure end doesn't exceed file size
+                    end = min(end, file_size - 1)
+                    content_length = end - start + 1
+                    
+                    # Read the requested range
+                    with open(output_path, 'rb') as f:
+                        f.seek(start)
+                        data = f.read(content_length)
+                    
+                    headers = {
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(content_length),
+                        "Content-Type": "video/mp4",
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                    
+                    return Response(content=data, status_code=206, headers=headers)
+            except Exception as e:
+                print(f"⚠️ Range request failed for {video_id}: {e}")
+                # Fall back to full file response
+        
+        # Return full file response
+        return FileResponse(
+            output_path,
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": "inline",  # Display in browser instead of download
+                "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+                "Accept-Ranges": "bytes"  # Indicate range support
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video streaming failed: {str(e)}")
+
+@app.get("/video_info/{video_id}")
+async def get_video_info(video_id: str):
+    """Get detailed video information and processing results"""
+    try:
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        if video_id not in app.video_status:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        status = app.video_status[video_id]
+        
+        # Get original video info if available
+        video_info = {}
+        if hasattr(app, 'uploaded_videos') and video_id in app.uploaded_videos:
+            video_info = app.uploaded_videos[video_id]['info']
+        
+        return {
+            "video_id": video_id,
+            "processing_status": status,
+            "original_info": video_info,
+            "stream_url": f"/stream_processed_video/{video_id}" if status['status'] == 'completed' else None,
+            "download_url": f"/download_processed_video/{video_id}" if status['status'] == 'completed' else None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get video info: {str(e)}")
+
+async def process_video_background(video_id: str, video_path: str, params: Dict, video_info: Dict):
+    """Background task for video processing"""
+    try:
+        # Update status to processing (should already exist from process_video endpoint)
+        if not hasattr(app, 'video_status'):
+            app.video_status = {}
+        
+        # Update existing status or create new one
+        if video_id in app.video_status:
+            app.video_status[video_id].update({
+                "status": "processing",
+                "message": "Initializing video processing..."
+            })
+        else:
+            app.video_status[video_id] = {
+                "video_id": video_id,
+                "status": "processing",
+                "progress": 0,
+                "current_frame": 0,
+                "total_frames": video_info['frame_count'],
+                "detections_count": 0,
+                "start_time": time.time(),
+                "message": "Initializing video processing..."
+            }
+        
+        # Open input video
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            app.video_status[video_id].update({
+                "status": "error",
+                "message": "Failed to open video file"
+            })
+            return
+        
+        # Set up output video with web-compatible encoding
+        output_dir = os.path.dirname(video_path)
+        output_path = os.path.join(output_dir, f"processed_{video_id}.mp4")
+        
+        # Use H.264 encoding for web compatibility
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 codec
+        out = cv2.VideoWriter(
+            output_path, 
+            fourcc, 
+            video_info['fps'], 
+            (video_info['width'], video_info['height'])
+        )
+        
+        # If H.264 fails, fallback to mp4v
+        if not out.isOpened():
+            print(f"⚠️ H.264 encoding failed, falling back to mp4v for {video_id}")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(
+                output_path, 
+                fourcc, 
+                video_info['fps'], 
+                (video_info['width'], video_info['height'])
+            )
+        
+        # Processing loop
+        frame_count = 0
+        total_detections = 0
+        processing_times = []
+        max_frames = video_info['frame_count']
+        
+        print(f"🎬 Starting video processing for {video_id}: {max_frames} frames")
+        
+        # Add timeout for video processing (max 10 minutes)
+        processing_start_time = time.time()
+        max_processing_time = 600  # 10 minutes
+        
+        while cap.isOpened() and frame_count < max_frames:
+            # Check for timeout
+            if time.time() - processing_start_time > max_processing_time:
+                print(f"⏱️ Video processing timeout reached for {video_id}")
+                app.video_status[video_id].update({
+                    "status": "error",
+                    "message": f"Processing timeout after {max_processing_time} seconds"
+                })
+                break
+            ret, frame = cap.read()
+            if not ret:
+                print(f"📹 End of video reached at frame {frame_count}")
+                break
+            
+            frame_start = time.time()
+            
+            try:
+                # Object detection on frame
+                detections = process_frame_detections(
+                    frame, 
+                    params['use_patch_detection'],
+                    params['confidence_threshold'],
+                    params['nms_threshold']
+                )
+                
+                # Visualize detections
+                annotated_frame = visualize_frame_detections(frame, detections, params)
+                
+                # Write frame to output
+                out.write(annotated_frame)
+                
+                # Update statistics
+                frame_count += 1
+                total_detections += len(detections)
+                processing_time = time.time() - frame_start
+                processing_times.append(processing_time)
+                
+                # Update status more frequently for responsiveness (every 10 frames)
+                if frame_count % 10 == 0 or frame_count == 1:
+                    progress = (frame_count / max_frames) * 100
+                    recent_times = processing_times[-10:] if len(processing_times) >= 10 else processing_times
+                    avg_fps = 1 / np.mean(recent_times) if recent_times else 0
+                    
+                    app.video_status[video_id].update({
+                        "progress": progress,
+                        "current_frame": frame_count,
+                        "detections_count": total_detections,
+                        "avg_fps": avg_fps,
+                        "message": f"Processing frame {frame_count}/{max_frames}"
+                    })
+                    
+                    if frame_count % 30 == 0:
+                        print(f"🔄 Processed {frame_count}/{max_frames} frames, {total_detections} detections so far")
+                        
+            except Exception as frame_error:
+                print(f"⚠️ Error processing frame {frame_count}: {frame_error}")
+                # Continue with next frame
+                frame_count += 1
+                continue
+        
+        cap.release()
+        out.release()
+        
+        # Final status update
+        total_time = time.time() - app.video_status[video_id]['start_time']
+        avg_processing_time = np.mean(processing_times) if processing_times else 0
+        
+        app.video_status[video_id].update({
+            "status": "completed",
+            "progress": 100,
+            "current_frame": frame_count,
+            "detections_count": total_detections,
+            "processing_time": total_time,
+            "avg_fps": 1/avg_processing_time if avg_processing_time > 0 else 0,
+            "output_path": output_path,
+            "message": f"Video processing completed! Processed {frame_count} frames with {total_detections} total detections."
+        })
+        
+    except Exception as e:
+        if hasattr(app, 'video_status') and video_id in app.video_status:
+            app.video_status[video_id].update({
+                "status": "error",
+                "message": f"Processing failed: {str(e)}"
+            })
+
+def process_frame_detections(frame: np.ndarray, use_patch_detection: bool, confidence_threshold: float, nms_threshold: float) -> List[Dict]:
+    """Process single frame for object detection"""
+    try:
+        if not models_loaded:
+            return []
+        
+        # Convert frame to PIL Image
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(frame_rgb)
+        
+        if use_patch_detection:
+            # Use patch detection
+            detections = detect_with_patches_impl(
+                pil_image, 
+                confidence_threshold, 
+                nms_threshold, 
+                192,  # Default patch size
+                0.2   # Default overlap
+            )
+        else:
+            # Standard detection
+            detections = run_yolo_detection(
+                pil_image, 
+                confidence_threshold, 
+                nms_threshold
+            )
+        
+        return detections
+        
+    except Exception as e:
+        print(f"Frame detection error: {e}")
+        return []
+
+def visualize_frame_detections(frame: np.ndarray, detections: List[Dict], params: Dict) -> np.ndarray:
+    """Draw detections on frame"""
+    try:
+        annotated_frame = frame.copy()
+        
+        for detection in detections:
+            bbox = detection.get('bbox', [])
+            confidence = detection.get('confidence', 0)
+            class_name = detection.get('class_name', 'unknown')
+            
+            if len(bbox) >= 4:
+                x1, y1, x2, y2 = [int(coord) for coord in bbox[:4]]
+                
+                # Draw bounding box
+                cv2.rectangle(
+                    annotated_frame, 
+                    (x1, y1), 
+                    (x2, y2), 
+                    (0, 255, 0), 
+                    params.get('bbox_thickness', 2)
+                )
+                
+                # Prepare label
+                label_parts = []
+                if params.get('show_class_names', True):
+                    label_parts.append(class_name)
+                if params.get('show_confidence', True):
+                    label_parts.append(f"{confidence:.2f}")
+                
+                if label_parts:
+                    label = " ".join(label_parts)
+                    
+                    # Draw label background
+                    (text_width, text_height), _ = cv2.getTextSize(
+                        label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1
+                    )
+                    cv2.rectangle(
+                        annotated_frame, 
+                        (x1, y1 - text_height - 10), 
+                        (x1 + text_width, y1), 
+                        (0, 255, 0), 
+                        -1
+                    )
+                    
+                    # Draw label text
+                    cv2.putText(
+                        annotated_frame, 
+                        label, 
+                        (x1, y1 - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.6, 
+                        (255, 255, 255), 
+                        1
+                    )
+        
+        return annotated_frame
+        
+    except Exception as e:
+        print(f"Visualization error: {e}")
+        return frame
+
 @app.post("/domain_adapt")
 async def start_domain_adaptation(
-    background_tasks: BackgroundTasks,
     params: DomainAdaptationRequest = DomainAdaptationRequest()
 ):
     """Domain adaptation training simulation"""
     
-    # Add training task to background
-    background_tasks.add_task(
-        run_domain_adaptation,
+    # Start training task using asyncio without blocking
+    import asyncio
+    asyncio.create_task(run_domain_adaptation(
         params.source_dataset,
         params.target_dataset,
         params.epochs,
         params.learning_rate
-    )
+    ))
     
     return {
         "success": True,

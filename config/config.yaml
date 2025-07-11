@@ -87,6 +87,25 @@ inference:
     num_workers: 4
     batch_size: 16
     
+  video_processing:
+    enabled: true
+    output_format: "mp4v"
+    max_file_size_mb: 500
+    frame_skip: 1  # Process every nth frame (1 = process all frames)
+    visualization:
+      show_confidence: true
+      show_class_names: true
+      show_tracking_ids: true
+      bbox_thickness: 2
+      font_scale: 0.6
+      colors:
+        - [0, 255, 0]    # Green
+        - [255, 0, 0]    # Red  
+        - [0, 0, 255]    # Blue
+        - [255, 255, 0]  # Yellow
+        - [255, 0, 255]  # Magenta
+        - [0, 255, 255]  # Cyan
+    
 # Deployment Configuration
 deployment:
   api:
