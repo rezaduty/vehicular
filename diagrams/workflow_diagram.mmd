@@ -1,0 +1,40 @@
+graph TD
+    A["🌐 User Interface Layer"] --> B["Streamlit Web Interface<br/>Port 8501<br/>Multi-page app"]
+    A --> C["Web Browser<br/>File uploads<br/>Real-time updates"]
+    
+    D["🌉 API Gateway Layer"] --> E["FastAPI Server<br/>Port 8000<br/>RESTful API"]
+    E --> F["/detect - Image detection"]
+    E --> G["/upload_video - Video upload"]
+    E --> H["/process_video - Video processing"]
+    E --> I["/stream_processed_video - Streaming"]
+    
+    J["🔧 Core Processing Pipeline"] --> K["File Upload & Validation"]
+    K --> L["Model Selection"]
+    L --> M["Preprocessing"]
+    M --> N["Model Inference"]
+    N --> O["Postprocessing"]
+    
+    P["🎥 Video Processing"] --> Q["Video Upload<br/>Multi-format support"]
+    Q --> R["Frame Extraction<br/>Sequential processing"]
+    R --> S["Batch Processing<br/>GPU optimization"]
+    S --> T["Video Generation<br/>H.264 encoding"]
+    T --> U["Streaming API<br/>HTTP range requests"]
+    
+    V["🌉 Domain Adaptation"] --> W["CARLA Source<br/>Perfect labels<br/>Unlimited data"]
+    V --> X["KITTI Target<br/>Real-world conditions<br/>Limited labels"]
+    W --> Y["Feature Extraction"]
+    X --> Y
+    Y --> Z["Domain Training<br/>DANN/CORAL/MMD"]
+    Z --> AA["Adaptation Evaluation"]
+    
+    BB["🎛️ Model Management"] --> CC["Model Registry<br/>Dynamic loading<br/>Version control"]
+    BB --> DD["Ensemble Logic<br/>Weighted/Confidence/Adaptive"]
+    CC --> EE["YOLOv8/RetinaNet/EfficientDet"]
+    DD --> FF["Parallel Inference<br/>Prediction fusion"]
+    
+    style A fill:#e1f5fe
+    style D fill:#f3e5f5
+    style J fill:#e8f5e8
+    style P fill:#fff3e0
+    style V fill:#fce4ec
+    style BB fill:#f1f8e9 

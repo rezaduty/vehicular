@@ -2,8 +2,8 @@
 
 project:
   name: "vehicular_technology_perception"
-  version: "1.0.0"
-  description: "Autonomous driving perception with object detection, tracking, and domain adaptation"
+  version: "2.0.0"
+  description: "Multi-model autonomous driving perception with domain adaptation from CARLA to KITTI"
 
 # Dataset Configuration
 data:
@@ -12,10 +12,17 @@ data:
       path: "data/kitti"
       type: "real_world"
       modalities: ["camera", "lidar"]
+      domain_label: 1
     carla:
       path: "data/carla"
       type: "simulation"
       modalities: ["camera", "lidar", "semantic"]
+      domain_label: 0
+    nuscenes:
+      path: "data/nuscenes"
+      type: "real_world"
+      modalities: ["camera", "lidar", "radar"]
+      domain_label: 1
     
   image:
     height: 384
@@ -32,35 +39,170 @@ data:
     contrast: 0.2
     rotation: 5.0
     
-# Model Configuration
+# Multi-Model Configuration
 models:
+  # Object Detection Models
   object_detection:
-    architecture: "yolov8"
-    backbone: "efficientnet-b3"
-    num_classes: 10
-    confidence_threshold: 0.5
-    nms_threshold: 0.4
-    
+    # Primary models
+    yolov8:
+      enabled: true
+      architecture: "yolov8"
+      model_size: "n"  # n, s, m, l, x
+      num_classes: 10
+      confidence_threshold: 0.5
+      nms_threshold: 0.4
+      weight: 1.0
+      
+    retinanet:
+      enabled: true
+      architecture: "retinanet"
+      backbone: "resnet50"
+      num_classes: 10
+      confidence_threshold: 0.5
+      anchor_scales: [1.0, 1.26, 1.59]
+      anchor_ratios: [0.5, 1.0, 2.0]
+      weight: 0.8
+      
+    efficientdet:
+      enabled: true
+      architecture: "efficientdet"
+      compound_coef: 0
+      num_classes: 10
+      confidence_threshold: 0.5
+      weight: 0.9
+      
+    # Ensemble settings
+    ensemble:
+      enabled: true
+      method: "weighted_average"  # weighted_average, max_voting, confidence_weighted, adaptive_weighted
+      nms_threshold: 0.5
+      confidence_threshold: 0.3
+      
+  # Segmentation Models
   segmentation:
-    architecture: "deeplabv3plus"
-    backbone: "resnet50"
-    num_classes: 19
-    
+    deeplabv3plus:
+      enabled: true
+      architecture: "deeplabv3plus"
+      backbone: "resnet50"
+      num_classes: 19
+      output_stride: 16
+      weight: 1.0
+      
+    unet:
+      enabled: false
+      architecture: "unet"
+      num_classes: 19
+      in_channels: 3
+      weight: 0.8
+      
+    # Ensemble settings
+    ensemble:
+      enabled: true
+      method: "weighted_average"
+      
+  # Tracking Models
   tracking:
-    method: "deep_sort"
-    max_age: 30
-    min_hits: 3
-    
+    deepsort:
+      enabled: true
+      method: "deep_sort"
+      max_age: 30
+      min_hits: 3
+      max_cosine_distance: 0.2
+      
+    most:
+      enabled: false
+      method: "most"
+      feature_dim: 256
+      
+  # Domain Adaptation Models
   domain_adaptation:
-    method: "dann"  # Domain Adversarial Neural Network
-    lambda_grl: 1.0
-    
+    # Domain Adversarial Neural Network
+    dann:
+      enabled: true
+      method: "dann"
+      lambda_grl: 1.0
+      num_domains: 2
+      feature_dim: 256
+      use_multiple_discriminators: true
+      weight: 1.0
+      
+    # Correlation Alignment
+    coral:
+      enabled: true
+      method: "coral"
+      coral_weight: 1.0
+      feature_dim: 256
+      weight: 0.8
+      
+    # Maximum Mean Discrepancy
+    mmd:
+      enabled: true
+      method: "mmd"
+      mmd_weight: 1.0
+      kernel_type: "rbf"
+      kernel_num: 5
+      weight: 0.9
+      
+    # Ensemble settings
+    ensemble:
+      enabled: true
+      method: "weighted_average"
+      adaptation_weight: 0.5  # Weight for domain adaptation vs task loss
+      
+  # Depth Estimation Models
+  depth_estimation:
+    monodepth2:
+      enabled: true
+      architecture: "monodepth2"
+      num_layers: 18
+      pretrained: true
+      frame_ids: [0, -1, 1]
+      weight: 1.0
+      
+    depth_estimator:
+      enabled: false
+      architecture: "depth_estimator"
+      backbone: "resnet50"
+      max_depth: 100.0
+      weight: 0.8
+      
+  # Autoencoder Models
   autoencoder:
-    latent_dim: 256
-    compression_ratio: 0.1
-    
+    image_autoencoder:
+      enabled: false
+      latent_dim: 256
+      compression_ratio: 0.1
+      
+    lidar_autoencoder:
+      enabled: false
+      max_points: 16384
+      point_features: 4
+      latent_dim: 256
+      
+  # Unsupervised Models
+  unsupervised:
+    lost:
+      enabled: false
+      method: "lost"
+      feature_dim: 256
+      num_proposals: 100
+      confidence_threshold: 0.5
+      
+    most:
+      enabled: false
+      method: "most"
+      feature_dim: 256
+      
+    sonata:
+      enabled: false
+      method: "sonata"
+      feature_dim: 64
+      dbscan_eps: 0.5
+      dbscan_min_samples: 10
+      
 # Training Configuration
 training:
+  # General settings
   batch_size: 8
   epochs: 100
   learning_rate: 0.001
@@ -68,44 +210,93 @@ training:
   weight_decay: 0.01
   scheduler: "cosine"
   
+  # Domain adaptation specific
+  domain_adaptation:
+    source_domain: "carla"
+    target_domain: "kitti"
+    adaptation_epochs: 50
+    warmup_epochs: 10
+    
+    # Loss weights
+    task_loss_weight: 1.0
+    domain_loss_weight: 1.0
+    coral_loss_weight: 0.5
+    mmd_loss_weight: 0.5
+    
+    # Gradient reversal lambda scheduling
+    lambda_schedule: "progressive"  # progressive, constant, exponential
+    lambda_max: 1.0
+    lambda_min: 0.01
+    
+  # Multi-model training
+  multi_model:
+    enabled: true
+    train_simultaneously: true
+    share_features: false
+    
+  # Early stopping
   early_stopping:
     patience: 10
     min_delta: 0.001
+    monitor: "val_loss"
     
+  # Advanced training settings
   mixed_precision: true
   gradient_clip: 1.0
+  accumulate_grad_batches: 1
   
 # Inference Configuration
 inference:
+  # Patch detection
   patch_detection:
     enabled: true
     patch_size: [192, 192]
     overlap: 0.2
     min_object_size: 20
     
+  # Parallel processing
   parallel_processing:
     num_workers: 4
     batch_size: 16
     
+  # Model ensemble
+  ensemble:
+    enabled: true
+    use_all_models: true
+    confidence_threshold: 0.3
+    nms_threshold: 0.5
+    
+  # Domain adaptation inference
+  domain_adaptation:
+    enabled: true
+    adaptation_method: "ensemble"  # ensemble, best_model, adaptive
+    confidence_boost: 1.1
+    
+  # Video processing
   video_processing:
     enabled: true
     output_format: "mp4v"
     max_file_size_mb: 500
-    frame_skip: 1  # Process every nth frame (1 = process all frames)
+    frame_skip: 1
+    
+    # Enhanced visualization
     visualization:
       show_confidence: true
       show_class_names: true
       show_tracking_ids: true
+      show_model_source: true
+      show_ensemble_confidence: true
       bbox_thickness: 2
       font_scale: 0.6
       colors:
-        - [0, 255, 0]    # Green
-        - [255, 0, 0]    # Red  
-        - [0, 0, 255]    # Blue
-        - [255, 255, 0]  # Yellow
-        - [255, 0, 255]  # Magenta
-        - [0, 255, 255]  # Cyan
-    
+        - [0, 255, 0]    # Green - YOLOv8
+        - [255, 0, 0]    # Red - RetinaNet
+        - [0, 0, 255]    # Blue - EfficientDet
+        - [255, 255, 0]  # Yellow - DANN
+        - [255, 0, 255]  # Magenta - CORAL
+        - [0, 255, 255]  # Cyan - MMD
+        - [255, 165, 0]  # Orange - Ensemble
+        
 # Deployment Configuration
 deployment:
   api:
@@ -117,24 +308,106 @@ deployment:
     host: "0.0.0.0"
     port: 8501
     
+  # Model serving
+  model_serving:
+    ensemble_mode: true
+    load_all_models: false  # Load models on demand
+    cache_predictions: true
+    batch_inference: true
+    
 # Evaluation Configuration
 evaluation:
   metrics:
-    detection: ["mAP", "mAP50", "mAP75"]
-    segmentation: ["mIoU", "pixel_accuracy"]
-    tracking: ["MOTA", "MOTP", "IDF1"]
+    detection: ["mAP", "mAP50", "mAP75", "precision", "recall", "f1"]
+    segmentation: ["mIoU", "pixel_accuracy", "mean_accuracy"]
+    tracking: ["MOTA", "MOTP", "IDF1", "MT", "ML", "FP", "FN", "IDSw"]
+    domain_adaptation: ["source_accuracy", "target_accuracy", "domain_accuracy", "adaptation_gap"]
+    
+  # Cross-validation
+  cross_validation:
+    enabled: true
+    k_folds: 5
+    stratified: true
+    
+  # Domain adaptation evaluation
+  domain_evaluation:
+    test_on_target: true
+    test_on_source: true
+    measure_domain_gap: true
     
   visualization:
     save_predictions: true
+    save_comparisons: true
     output_dir: "outputs/visualizations"
+    
+# Benchmarking Configuration
+benchmarking:
+  enabled: true
+  
+  # Performance comparison
+  compare_models: true
+  compare_ensembles: true
+  
+  # Speed benchmarking
+  measure_inference_time: true
+  measure_training_time: true
+  
+  # Memory usage
+  measure_memory_usage: true
+  
+  # Domain adaptation benchmarking
+  domain_adaptation_benchmark:
+    enabled: true
+    test_datasets: ["kitti", "nuscenes"]
+    adaptation_methods: ["dann", "coral", "mmd"]
     
 # Logging Configuration
 logging:
   level: "INFO"
+  
+  # Weights & Biases
   wandb:
     enabled: true
-    project: "autonomous_driving_perception"
+    project: "autonomous_driving_multi_model"
+    entity: "your_entity"
+    tags: ["domain_adaptation", "multi_model", "carla_to_kitti"]
     
+  # TensorBoard
   tensorboard:
     enabled: true
-    log_dir: "logs/tensorboard" 
+    log_dir: "logs/tensorboard"
+    
+  # MLflow
+  mlflow:
+    enabled: false
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "domain_adaptation_experiment"
+    
+# Hardware Configuration
+hardware:
+  device: "cuda"  # cuda, cpu, auto
+  gpu_ids: [0]
+  mixed_precision: true
+  
+  # Memory optimization
+  memory_optimization:
+    enabled: true
+    gradient_checkpointing: false
+    model_parallelism: false
+    
+# Experimental Features
+experimental:
+  # Advanced ensemble methods
+  advanced_ensemble:
+    enabled: false
+    method: "neural_ensemble"  # neural_ensemble, bayesian_ensemble
+    
+  # Meta-learning for domain adaptation
+  meta_learning:
+    enabled: false
+    method: "maml"  # maml, reptile
+    
+  # Continual learning
+  continual_learning:
+    enabled: false
+    method: "ewc"  # ewc, l2, replay 

@@ -1,0 +1,38 @@
+graph TD
+    A["🏗️ Multi-Model Architecture"] --> B["Object Detection Models"]
+    A --> C["Domain Adaptation Models"]
+    A --> D["Ensemble System"]
+    
+    B --> E["YOLOv8 Detector<br/>45 FPS<br/>3.2M params<br/>Real-time"]
+    B --> F["RetinaNet<br/>25 FPS<br/>ResNet50 + FPN<br/>Small objects"]
+    B --> G["EfficientDet<br/>32 FPS<br/>BiFPN<br/>Efficiency"]
+    
+    C --> H["DANN<br/>Domain Adversarial<br/>GRL λ=1.0"]
+    C --> I["CORAL<br/>Correlation Alignment<br/>Statistical matching"]
+    C --> J["MMD<br/>Maximum Mean Discrepancy<br/>Kernel methods"]
+    
+    D --> K["Weighted Average<br/>Model weights"]
+    D --> L["Confidence Weighting<br/>Dynamic weights"]
+    D --> M["Adaptive Weighting<br/>Performance-based"]
+    
+    N["🔧 Parallel Patch Detection"] --> O["Patch Extractor<br/>192×192 pixels<br/>20% overlap"]
+    N --> P["Parallel Processing<br/>4 workers<br/>GPU optimized"]
+    N --> Q["Patch Merger<br/>NMS across patches<br/>Coordinate transform"]
+    
+    R["🎼 Model Ensemble"] --> S["Input Image"]
+    S --> T["YOLOv8 (1.0)"]
+    S --> U["RetinaNet (0.8)"]
+    S --> V["EfficientDet (0.9)"]
+    S --> W["DANN (0.7)"]
+    T --> X["Ensemble Logic"]
+    U --> X
+    V --> X
+    W --> X
+    X --> Y["Final Predictions"]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0
+    style N fill:#fce4ec
+    style R fill:#f1f8e9 

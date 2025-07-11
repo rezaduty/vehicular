@@ -158,8 +158,38 @@ def process_image_detection():
             st.image(image, use_column_width=True)
         
         # Detection parameters
+        st.sidebar.subheader("🎛️ Model Selection")
+        
+        # Get available models from API
+        try:
+            response = requests.get(f"{API_BASE_URL}/models", timeout=5)
+            if response.status_code == 200:
+                models_info = response.json()
+                available_models = list(models_info.get('models', {}).keys())
+                if not available_models:
+                    available_models = ['yolov8', 'standard', 'patch_detection']
+            else:
+                available_models = ['yolov8', 'standard', 'patch_detection']
+        except:
+            available_models = ['yolov8', 'standard', 'patch_detection']
+        
+        # Model selection
+        selected_model = st.sidebar.selectbox(
+            "Select Detection Model",
+            available_models,
+            help="Choose the detection model to use"
+        )
+        
+        # Show model info
+        if selected_model == 'yolov8':
+            st.sidebar.info("🚀 **YOLOv8**: Fast and accurate object detection")
+        elif selected_model == 'patch_detection':
+            st.sidebar.info("🔍 **Patch Detection**: Enhanced small object detection")
+        else:
+            st.sidebar.info(f"🤖 **{selected_model.upper()}**: Advanced detection model")
+        
         st.sidebar.subheader("Detection Parameters")
-        use_patch_detection = st.sidebar.checkbox("Use Patch Detection", value=True)
+        use_patch_detection = st.sidebar.checkbox("Use Patch Detection", value=(selected_model == 'patch_detection'))
         confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5, 0.05)
         nms_threshold = st.sidebar.slider("NMS Threshold", 0.1, 1.0, 0.4, 0.05)
         
@@ -269,9 +299,30 @@ def process_video_detection():
         # Video processing parameters
         st.sidebar.subheader("🎥 Video Processing Settings")
         
+        # Model selection for video
+        st.sidebar.markdown("**🎛️ Model Selection:**")
+        try:
+            response = requests.get(f"{API_BASE_URL}/models", timeout=5)
+            if response.status_code == 200:
+                models_info = response.json()
+                available_models = list(models_info.get('models', {}).keys())
+                if not available_models:
+                    available_models = ['yolov8', 'standard', 'patch_detection']
+            else:
+                available_models = ['yolov8', 'standard', 'patch_detection']
+        except:
+            available_models = ['yolov8', 'standard', 'patch_detection']
+        
+        selected_video_model = st.sidebar.selectbox(
+            "Select Detection Model",
+            available_models,
+            key="video_model_select",
+            help="Choose the detection model for video processing"
+        )
+        
         # Detection settings
         st.sidebar.markdown("**Detection Configuration:**")
-        use_patch_detection = st.sidebar.checkbox("Enable Patch Detection", value=True, key="video_patch")
+        use_patch_detection = st.sidebar.checkbox("Enable Patch Detection", value=(selected_video_model == 'patch_detection'), key="video_patch")
         confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5, 0.05, key="video_conf")
         nms_threshold = st.sidebar.slider("NMS Threshold", 0.1, 1.0, 0.4, 0.05, key="video_nms")
         
@@ -1158,13 +1209,51 @@ def model_comparison_page():
     Compare different detection methods and analyze their performance characteristics.
     """)
     
-    # Sample comparison data
+    # Get available models from API
+    try:
+        response = requests.get(f"{API_BASE_URL}/models", timeout=5)
+        if response.status_code == 200:
+            models_info = response.json()
+            available_models = list(models_info.get('models', {}).keys())
+            
+            # Display current models
+            st.subheader("🎛️ Available Models")
+            
+            for model_name, model_info in models_info.get('models', {}).items():
+                with st.expander(f"🤖 {model_name.upper()} - {model_info.get('type', 'Unknown')}"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write(f"**Status**: {model_info.get('status', 'Unknown')}")
+                        st.write(f"**Description**: {model_info.get('description', 'No description')}")
+                        if 'classes' in model_info:
+                            st.write(f"**Classes**: {model_info['classes']}")
+                        if 'performance' in model_info:
+                            st.write(f"**Performance**: {model_info['performance']}")
+                    
+                    with col2:
+                        if 'parameters' in model_info:
+                            st.write(f"**Parameters**: {model_info['parameters']}")
+                        if 'input_size' in model_info:
+                            st.write(f"**Input Size**: {model_info['input_size']}")
+                        if 'method' in model_info:
+                            st.write(f"**Method**: {model_info['method']}")
+                        if 'patch_size' in model_info:
+                            st.write(f"**Patch Size**: {model_info['patch_size']}")
+        else:
+            st.error("Could not fetch model information from API")
+            available_models = []
+    except Exception as e:
+        st.error(f"Error connecting to API: {e}")
+        available_models = []
+    
+    # Sample comparison data for visualization
     models_data = {
-        'Model': ['YOLOv8', 'EfficientDet', 'LOST (Unsupervised)', 'Patch Detection'],
-        'mAP@0.5': [0.853, 0.831, 0.724, 0.867],
-        'Inference Speed (FPS)': [45, 32, 28, 38],
-        'Memory Usage (GB)': [2.3, 3.1, 2.8, 3.5],
-        'Training Type': ['Supervised', 'Supervised', 'Unsupervised', 'Supervised']
+        'Model': ['YOLOv8', 'Domain Adaptation', 'Patch Detection', 'LOST (Unsupervised)'],
+        'mAP@0.5': [0.853, 0.831, 0.867, 0.724],
+        'Inference Speed (FPS)': [45, 32, 38, 28],
+        'Memory Usage (GB)': [2.3, 3.1, 3.5, 2.8],
+        'Training Type': ['Supervised', 'Domain Adapted', 'Supervised', 'Unsupervised']
     }
     
     df = pd.DataFrame(models_data)

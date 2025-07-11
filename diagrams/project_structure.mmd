@@ -1,0 +1,64 @@
+graph TD
+    A["📁 vehi/ - Project Root"] --> B["🔧 src/ - Source Code"]
+    A --> C["⚙️ config/ - Configuration"]
+    A --> D["📚 docs/ - Documentation"]
+    A --> E["🧪 tests/ - Test Files"]
+    A --> F["📊 Data Directories"]
+    A --> G["🎥 video_sample_file/"]
+    A --> H["📋 Project Files"]
+    
+    B --> I["api/ - API Layer"]
+    B --> J["models/ - ML Models"]
+    B --> K["data/ - Data Processing"]
+    B --> L["unsupervised/ - Self-supervised"]
+    B --> M["streamlit_app.py"]
+    B --> N["train.py"]
+    
+    I --> O["real_working_api.py<br/>Production API"]
+    I --> P["multi_model_api.py<br/>Ensemble API"]
+    I --> Q["real_domain_adaptation.py<br/>Training API"]
+    
+    J --> R["object_detection.py<br/>YOLOv8, EfficientDet"]
+    J --> S["domain_adaptation.py<br/>DANN, CORAL, MMD"]
+    J --> T["tensorflow_models.py<br/>TF implementations"]
+    J --> U["pytorch_models.py<br/>PyTorch models"]
+    J --> V["model_ensemble.py<br/>Ensemble system"]
+    
+    K --> W["dataset_loader.py<br/>Data loading"]
+    K --> X["transforms.py<br/>Preprocessing"]
+    K --> Y["utils.py<br/>Utilities"]
+    
+    L --> Z["lost.py - LOST algorithm"]
+    L --> AA["most.py - MOST algorithm"]
+    L --> BB["sonata.py - SONATA algorithm"]
+    
+    C --> CC["config.yaml<br/>Main configuration"]
+    
+    D --> DD["Technical Documentation"]
+    D --> EE["Implementation Guides"]
+    D --> FF["Status Reports"]
+    
+    E --> GG["Core Tests"]
+    E --> HH["Specialized Tests"]
+    E --> II["Demo Scripts"]
+    
+    F --> JJ["domain_adaptation_data/<br/>CARLA, KITTI, nuScenes"]
+    F --> KK["test_images/<br/>Test scenarios"]
+    F --> LL["demo_upload_images/<br/>Demo images"]
+    
+    G --> MM["video_detect.py<br/>Video processing"]
+    G --> NN["streamlit_app.py<br/>Video interface"]
+    
+    H --> OO["requirements.txt<br/>Dependencies"]
+    H --> PP["Dockerfile<br/>Container config"]
+    H --> QQ["README.md<br/>Project overview"]
+    H --> RR["yolov8n.pt<br/>Model weights"]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0
+    style E fill:#fce4ec
+    style F fill:#f1f8e9
+    style G fill:#e0f2f1
+    style H fill:#fdf2e9 

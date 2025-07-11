@@ -1,0 +1,35 @@
+graph TD
+    A["📊 Performance Results"] --> B["Detection Results"]
+    A --> C["Model Comparison"]
+    A --> D["Domain Adaptation"]
+    A --> E["Patch Detection"]
+    
+    B --> F["Urban Dense<br/>12/12 objects<br/>mAP: 0.867<br/>100% recall"]
+    B --> G["Highway Sparse<br/>3/3 objects<br/>mAP: 0.891<br/>0.3s processing"]
+    B --> H["Small Objects<br/>15/16 objects<br/>mAP: 0.834<br/>93.75% recall"]
+    
+    C --> I["YOLOv8<br/>45 FPS<br/>0.853 mAP<br/>2.3GB memory"]
+    C --> J["RetinaNet<br/>25 FPS<br/>0.831 mAP<br/>3.1GB memory"]
+    C --> K["EfficientDet<br/>32 FPS<br/>0.847 mAP<br/>2.8GB memory"]
+    C --> L["Ensemble<br/>15 FPS<br/>0.891 mAP<br/>8.2GB memory"]
+    
+    D --> M["CARLA Source<br/>89.3% accuracy<br/>Perfect conditions"]
+    D --> N["KITTI Target<br/>74.2% accuracy<br/>Real-world noise"]
+    D --> O["Domain Gap<br/>15.1% final gap<br/>56% improvement"]
+    
+    E --> P["Standard Detection<br/>67% small object recall<br/>0.5s processing"]
+    E --> Q["Patch Detection<br/>89% small object recall<br/>0.8s processing<br/>+22% improvement"]
+    
+    R["🎥 Video Processing"] --> S["Real-time Processing<br/>15 FPS output<br/>30 FPS input<br/>67ms latency"]
+    R --> T["H.264 Encoding<br/>Web compatibility<br/>Progressive download"]
+    
+    U["🎨 Visualization"] --> V["Bounding Boxes<br/>Color coding<br/>Confidence scores"]
+    U --> W["Tracking<br/>Trajectory lines<br/>Unique IDs"]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0
+    style E fill:#fce4ec
+    style R fill:#f1f8e9
+    style U fill:#e0f2f1 

@@ -1,0 +1,28 @@
+graph TD
+    A["🌍 Real-World Datasets"] --> B["KITTI Dataset<br/>15 images<br/>Domain Label: 1"]
+    A --> C["nuScenes Dataset<br/>15 images<br/>Domain Label: 1"]
+    
+    D["🎮 Simulation Datasets"] --> E["CARLA Simulator<br/>20 images<br/>Domain Label: 0"]
+    D --> F["AirSim Simulator<br/>20 images<br/>Domain Label: 0"]
+    
+    G["🧪 Test Scenarios"] --> H["Urban Dense<br/>12 objects<br/>Small object detection"]
+    G --> I["Highway Sparse<br/>3 objects<br/>Standard detection"]
+    G --> J["Mixed Scene<br/>9 objects<br/>General testing"]
+    G --> K["Small Objects<br/>16 objects<br/>Maximum density"]
+    G --> L["Simulation Style<br/>6 objects<br/>Domain adaptation"]
+    G --> M["KITTI Style<br/>Real-world style"]
+    G --> N["CARLA Style<br/>Perfect simulation"]
+    
+    O["🔄 Domain Adaptation"] --> P["DANN<br/>Domain Adversarial"]
+    O --> Q["CORAL<br/>Correlation Alignment"]
+    O --> R["MMD<br/>Maximum Mean Discrepancy"]
+    
+    S["📊 Object Categories"] --> T["Small Objects<br/>< 32x32 pixels"]
+    S --> U["Medium Objects<br/>32x64 pixels"]
+    S --> V["Large Objects<br/>> 64x64 pixels"]
+    
+    style A fill:#e1f5fe
+    style D fill:#f3e5f5
+    style G fill:#e8f5e8
+    style O fill:#fff3e0
+    style S fill:#fce4ec 
