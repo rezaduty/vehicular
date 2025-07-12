@@ -1685,108 +1685,293 @@ def configuration_page():
                         st.error(f"❌ Configuration test failed: {e}")
 
 def analytics_dashboard_page():
-    """Analytics dashboard"""
+    """Analytics dashboard with real data"""
     st.header("📈 Analytics Dashboard")
     
-    st.markdown("System performance metrics and analytics.")
+    st.markdown("Real-time system performance metrics and analytics from actual data.")
     
-    # Generate sample analytics data
-    dates = pd.date_range('2024-01-01', periods=30, freq='D')
+    # Check API connection
+    try:
+        health_response = requests.get(f"{API_BASE_URL}/health", timeout=5)
+        api_connected = health_response.status_code == 200
+    except:
+        api_connected = False
     
-    # Sample metrics
-    detection_accuracy = np.random.normal(0.85, 0.05, 30)
-    processing_speed = np.random.normal(42, 5, 30)
-    memory_usage = np.random.normal(2.5, 0.3, 30)
+    if not api_connected:
+        st.error("❌ Cannot connect to API. Please ensure the API server is running.")
+        return
     
-    analytics_df = pd.DataFrame({
-        'Date': dates,
-        'Detection Accuracy': np.clip(detection_accuracy, 0.7, 0.95),
-        'Processing Speed (FPS)': np.clip(processing_speed, 25, 55),
-        'Memory Usage (GB)': np.clip(memory_usage, 1.8, 3.2)
-    })
+    # Real-time System Metrics
+    st.subheader("📊 Real-Time System Metrics")
     
-    # Performance over time
-    st.subheader("Performance Trends")
+    try:
+        system_response = requests.get(f"{API_BASE_URL}/analytics/system_metrics", timeout=10)
+        if system_response.status_code == 200:
+            system_data = system_response.json()['data']
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    "🎯 Avg Accuracy",
+                    f"{system_data['performance']['avg_confidence']:.3f}",
+                    f"+{(system_data['performance']['avg_confidence'] - 0.7):.3f}"
+                )
+            
+            with col2:
+                st.metric(
+                    "⚡ Avg FPS", 
+                    f"{system_data['performance']['avg_fps']:.1f}",
+                    f"+{(system_data['performance']['avg_fps'] - 20):.1f}"
+                )
+            
+            with col3:
+                st.metric(
+                    "💾 Memory Usage",
+                    f"{system_data['system']['memory_usage']:.1f}%",
+                    f"Available: {system_data['system']['memory_available']:.1f}GB"
+                )
+            
+            with col4:
+                st.metric(
+                    "✅ Success Rate",
+                    f"{system_data['performance']['success_rate']:.1%}",
+                    f"Uptime: {system_data['uptime']['uptime_percentage']:.1f}%"
+                )
+            
+            # System resource info
+            st.markdown("#### 🖥️ System Resources")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("CPU Usage", f"{system_data['system']['cpu_usage']:.1f}%")
+                st.metric("GPU Available", "Yes" if system_data['system']['gpu_available'] else "No")
+            
+            with col2:
+                st.metric("Avg Processing Time", f"{system_data['performance']['avg_processing_time']:.3f}s")
+                st.metric("Avg Detections/Image", f"{system_data['performance']['avg_detections_per_image']:.1f}")
+                
+        else:
+            st.warning("Unable to fetch system metrics")
+    except Exception as e:
+        st.error(f"Error fetching system metrics: {str(e)}")
     
-    col1, col2 = st.columns(2)
+    # Performance Trends
+    st.subheader("📈 Performance Trends (Last 30 Days)")
     
-    with col1:
-        fig1 = px.line(
-            analytics_df,
-            x='Date',
-            y='Detection Accuracy',
-            title='Detection Accuracy Over Time'
-        )
-        st.plotly_chart(fig1, use_container_width=True)
+    try:
+        trends_response = requests.get(f"{API_BASE_URL}/analytics/detection_trends", timeout=10)
+        if trends_response.status_code == 200:
+            trends_data = trends_response.json()['data']
+            
+            if trends_data:
+                trends_df = pd.DataFrame(trends_data)
+                trends_df['date'] = pd.to_datetime(trends_df['date'])
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig1 = px.line(
+                        trends_df,
+                        x='date',
+                        y='avg_confidence',
+                        title='Average Confidence Over Time',
+                        labels={'avg_confidence': 'Confidence', 'date': 'Date'}
+                    )
+                    fig1.update_traces(line_color='#1f77b4')
+                    st.plotly_chart(fig1, use_container_width=True)
+                
+                with col2:
+                    fig2 = px.line(
+                        trends_df,
+                        x='date', 
+                        y='fps',
+                        title='Processing Speed Over Time',
+                        labels={'fps': 'FPS', 'date': 'Date'}
+                    )
+                    fig2.update_traces(line_color='#ff7f0e')
+                    st.plotly_chart(fig2, use_container_width=True)
+                
+                # Additional trend charts
+                col3, col4 = st.columns(2)
+                
+                with col3:
+                    fig3 = px.line(
+                        trends_df,
+                        x='date',
+                        y='avg_detections',
+                        title='Average Detections Per Image',
+                        labels={'avg_detections': 'Detections', 'date': 'Date'}
+                    )
+                    fig3.update_traces(line_color='#2ca02c')
+                    st.plotly_chart(fig3, use_container_width=True)
+                
+                with col4:
+                    fig4 = px.line(
+                        trends_df,
+                        x='date',
+                        y='success_rate',
+                        title='Success Rate Over Time',
+                        labels={'success_rate': 'Success Rate', 'date': 'Date'}
+                    )
+                    fig4.update_traces(line_color='#d62728')
+                    st.plotly_chart(fig4, use_container_width=True)
+            else:
+                st.info("No historical trend data available yet. Run some detections to see trends.")
+        else:
+            st.warning("Unable to fetch trend data")
+    except Exception as e:
+        st.error(f"Error fetching trend data: {str(e)}")
     
-    with col2:
-        fig2 = px.line(
-            analytics_df,
-            x='Date', 
-            y='Processing Speed (FPS)',
-            title='Processing Speed Over Time'
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+    # Real Dataset Statistics
+    st.subheader("📊 Real Dataset Statistics")
     
-    # Current metrics
-    st.subheader("Current Performance Metrics")
+    try:
+        dataset_response = requests.get(f"{API_BASE_URL}/analytics/dataset_statistics", timeout=10)
+        if dataset_response.status_code == 200:
+            dataset_data = dataset_response.json()['data']
+            
+            # Dataset overview
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Images", dataset_data['total_images'])
+            
+            with col2:
+                st.metric("Total Annotations", dataset_data['total_annotations'])
+            
+            with col3:
+                st.metric("Avg Objects/Image", f"{dataset_data['computed_metrics']['avg_objects_per_image']:.1f}")
+            
+            # Dataset breakdown
+            if dataset_data['datasets']:
+                dataset_list = []
+                for name, info in dataset_data['datasets'].items():
+                    dataset_list.append({
+                        'Dataset': name.upper(),
+                        'Images': info['images'],
+                        'Type': info['type'].replace('_', ' ').title(),
+                        'Modalities': ', '.join(info['modalities'])
+                    })
+                
+                dataset_df = pd.DataFrame(dataset_list)
+                st.dataframe(dataset_df, use_container_width=True)
+            
+            # Class distribution
+            if dataset_data['class_distribution']:
+                st.markdown("#### 🎯 Object Class Distribution")
+                
+                class_df = pd.DataFrame([
+                    {'Class': class_name.replace('_', ' ').title(), 'Count': count}
+                    for class_name, count in dataset_data['class_distribution'].items()
+                ])
+                
+                fig3 = px.pie(
+                    class_df,
+                    values='Count',
+                    names='Class',
+                    title='Real Object Class Distribution from Test Data'
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+                
+                # Class balance information
+                st.markdown("#### ⚖️ Class Balance Analysis")
+                balance_data = dataset_data['computed_metrics']['class_balance']
+                balance_df = pd.DataFrame([
+                    {'Class': class_name.replace('_', ' ').title(), 'Percentage': f"{percentage:.1%}"}
+                    for class_name, percentage in balance_data.items()
+                ])
+                st.dataframe(balance_df, use_container_width=True)
+            
+        else:
+            st.warning("Unable to fetch dataset statistics")
+    except Exception as e:
+        st.error(f"Error fetching dataset statistics: {str(e)}")
     
-    col1, col2, col3, col4 = st.columns(4)
+    # Per-Class Performance
+    st.subheader("🎯 Per-Class Performance Analysis")
     
-    with col1:
-        st.metric(
-            "Accuracy",
-            f"{analytics_df['Detection Accuracy'].iloc[-1]:.3f}",
-            f"{analytics_df['Detection Accuracy'].iloc[-1] - analytics_df['Detection Accuracy'].iloc[-2]:+.3f}"
-        )
+    try:
+        class_response = requests.get(f"{API_BASE_URL}/analytics/class_performance", timeout=10)
+        if class_response.status_code == 200:
+            class_data = class_response.json()['data']
+            
+            if class_data:
+                class_df = pd.DataFrame(class_data)
+                class_df['Class'] = class_df['class_name'].str.replace('_', ' ').str.title()
+                
+                # Performance metrics table
+                performance_df = class_df[['Class', 'precision', 'recall', 'f1_score', 'support']].copy()
+                performance_df['Precision'] = performance_df['precision'].apply(lambda x: f"{x:.3f}")
+                performance_df['Recall'] = performance_df['recall'].apply(lambda x: f"{x:.3f}")
+                performance_df['F1 Score'] = performance_df['f1_score'].apply(lambda x: f"{x:.3f}")
+                performance_df['Support'] = performance_df['support']
+                
+                st.dataframe(performance_df[['Class', 'Precision', 'Recall', 'F1 Score', 'Support']], use_container_width=True)
+                
+                # Performance visualization
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig_precision = px.bar(
+                        class_df,
+                        x='Class',
+                        y='precision',
+                        title='Precision by Class',
+                        labels={'precision': 'Precision', 'Class': 'Object Class'}
+                    )
+                    st.plotly_chart(fig_precision, use_container_width=True)
+                
+                with col2:
+                    fig_recall = px.bar(
+                        class_df,
+                        x='Class',
+                        y='recall',
+                        title='Recall by Class',
+                        labels={'recall': 'Recall', 'Class': 'Object Class'}
+                    )
+                    st.plotly_chart(fig_recall, use_container_width=True)
+            else:
+                st.info("No class performance data available yet.")
+        else:
+            st.warning("Unable to fetch class performance data")
+    except Exception as e:
+        st.error(f"Error fetching class performance data: {str(e)}")
     
-    with col2:
-        st.metric(
-            "Speed (FPS)", 
-            f"{analytics_df['Processing Speed (FPS)'].iloc[-1]:.1f}",
-            f"{analytics_df['Processing Speed (FPS)'].iloc[-1] - analytics_df['Processing Speed (FPS)'].iloc[-2]:+.1f}"
-        )
+    # Model Performance Comparison
+    st.subheader("🔬 Model Performance History")
     
-    with col3:
-        st.metric(
-            "Memory (GB)",
-            f"{analytics_df['Memory Usage (GB)'].iloc[-1]:.2f}",
-            f"{analytics_df['Memory Usage (GB)'].iloc[-1] - analytics_df['Memory Usage (GB)'].iloc[-2]:+.2f}"
-        )
+    try:
+        model_response = requests.get(f"{API_BASE_URL}/analytics/model_performance", timeout=10)
+        if model_response.status_code == 200:
+            model_data = model_response.json()['data']
+            
+            if model_data:
+                model_df = pd.DataFrame(model_data)
+                model_df['timestamp'] = pd.to_datetime(model_df['timestamp'])
+                
+                # Performance comparison table
+                comparison_df = model_df[['model_name', 'dataset', 'accuracy', 'precision', 'recall', 'f1_score', 'inference_time']].copy()
+                comparison_df['Model'] = comparison_df['model_name'].str.title()
+                comparison_df['Dataset'] = comparison_df['dataset'].str.title()
+                comparison_df['Accuracy'] = comparison_df['accuracy'].apply(lambda x: f"{x:.3f}")
+                comparison_df['Precision'] = comparison_df['precision'].apply(lambda x: f"{x:.3f}")
+                comparison_df['Recall'] = comparison_df['recall'].apply(lambda x: f"{x:.3f}")
+                comparison_df['F1 Score'] = comparison_df['f1_score'].apply(lambda x: f"{x:.3f}")
+                comparison_df['Inference Time'] = comparison_df['inference_time'].apply(lambda x: f"{x:.3f}s")
+                
+                st.dataframe(comparison_df[['Model', 'Dataset', 'Accuracy', 'Precision', 'Recall', 'F1 Score', 'Inference Time']], use_container_width=True)
+            else:
+                st.info("No model performance history available yet.")
+        else:
+            st.warning("Unable to fetch model performance data")
+    except Exception as e:
+        st.error(f"Error fetching model performance data: {str(e)}")
     
-    with col4:
-        uptime = "99.8%"
-        st.metric("Uptime", uptime, "0.1%")
-    
-    # Dataset statistics
-    st.subheader("Dataset Statistics")
-    
-    dataset_stats = {
-        'Dataset': ['KITTI', 'CARLA', 'nuScenes', 'Waymo'],
-        'Images': [7481, 12000, 40000, 198000],
-        'Annotations': [80256, 150000, 1400000, 12000000],
-        'Avg Objects/Image': [10.7, 12.5, 35.0, 60.6]
-    }
-    
-    dataset_df = pd.DataFrame(dataset_stats)
-    st.dataframe(dataset_df, use_container_width=True)
-    
-    # Class distribution
-    class_data = {
-        'Class': ['Car', 'Pedestrian', 'Cyclist', 'Truck', 'Van', 'Traffic Sign'],
-        'Count': [45123, 12456, 3789, 5234, 2876, 8945]
-    }
-    
-    class_df = pd.DataFrame(class_data)
-    
-    fig3 = px.pie(
-        class_df,
-        values='Count',
-        names='Class',
-        title='Object Class Distribution'
-    )
-    
-    st.plotly_chart(fig3, use_container_width=True)
+    # Refresh button
+    st.markdown("---")
+    if st.button("🔄 Refresh Analytics Data"):
+        st.rerun()
 
 if __name__ == "__main__":
     main() 

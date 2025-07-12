@@ -21,13 +21,18 @@ import tempfile
 import os
 
 # Import model components
-from ..models.model_ensemble import ModelEnsemble, create_model_ensemble
-from ..models.domain_adaptation_pipeline import DomainAdaptationPipeline, create_domain_adaptation_pipeline
-from ..models.object_detection import YOLOv8Detector, ParallelPatchDetector
-from ..models.tensorflow_models import create_retinanet, create_efficientdet
-from ..models.pytorch_models import create_coral_model, create_mmd_model, create_monodepth2_model
-from ..data.dataset_loader import DatasetLoader
-from ..data.transforms import get_transforms
+try:
+    from ..models.model_ensemble import ModelEnsemble, create_model_ensemble
+    from ..models.domain_adaptation_pipeline import DomainAdaptationPipeline, create_domain_adaptation_pipeline
+    from ..models.object_detection import YOLOv8Detector, ParallelPatchDetector
+    from ..models.tensorflow_models import create_retinanet, create_efficientdet
+    from ..models.pytorch_models import create_coral_model, create_mmd_model, create_monodepth2_model
+    from ..data.dataset_loader import DatasetLoader
+    from ..data.transforms import get_transforms
+    MODELS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Some model imports failed: {e}")
+    MODELS_AVAILABLE = False
 
 
 # Initialize FastAPI app
@@ -65,48 +70,77 @@ async def startup_event():
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
     else:
-        raise RuntimeError("Configuration file not found")
+        # Default configuration if file not found
+        config = {
+            "models": {
+                "object_detection": {
+                    "yolov8": {"enabled": True, "architecture": "yolov8", "weight": 1.0},
+                    "retinanet": {"enabled": False, "architecture": "retinanet", "weight": 0.8},
+                    "efficientdet": {"enabled": False, "architecture": "efficientdet", "weight": 0.9},
+                    "ensemble": {"method": "weighted_average"}
+                },
+                "domain_adaptation": {
+                    "dann": {"enabled": False},
+                    "coral": {"enabled": False},
+                    "mmd": {"enabled": False}
+                }
+            },
+            "data": {
+                "image": {"height": 384, "width": 1280, "channels": 3}
+            }
+        }
     
     logger.info("🚀 Starting Multi-Model Autonomous Driving Perception API...")
     
-    # Initialize model ensemble
-    enabled_models = []
-    if config['models']['object_detection']['yolov8']['enabled']:
-        enabled_models.append('yolov8')
-    if config['models']['object_detection']['retinanet']['enabled']:
-        enabled_models.append('retinanet')
-    if config['models']['object_detection']['efficientdet']['enabled']:
-        enabled_models.append('efficientdet')
-    
-    if config['models']['domain_adaptation']['dann']['enabled']:
-        enabled_models.append('dann')
-    if config['models']['domain_adaptation']['coral']['enabled']:
-        enabled_models.append('coral')
-    if config['models']['domain_adaptation']['mmd']['enabled']:
-        enabled_models.append('mmd')
-    
-    model_ensemble = create_model_ensemble(
-        config=config,
-        model_types=enabled_models,
-        ensemble_method=config['models']['object_detection']['ensemble']['method']
-    )
-    
-    # Initialize domain adaptation pipeline
-    adaptation_methods = []
-    if config['models']['domain_adaptation']['dann']['enabled']:
-        adaptation_methods.append('dann')
-    if config['models']['domain_adaptation']['coral']['enabled']:
-        adaptation_methods.append('coral')
-    if config['models']['domain_adaptation']['mmd']['enabled']:
-        adaptation_methods.append('mmd')
-    
-    if adaptation_methods:
-        domain_adaptation_pipeline = create_domain_adaptation_pipeline(
-            config=config,
-            adaptation_methods=adaptation_methods
-        )
-    
-    logger.info("✅ Multi-Model API initialized successfully")
+    # Initialize model ensemble only if models are available
+    if MODELS_AVAILABLE:
+        try:
+            # Initialize model ensemble
+            enabled_models = []
+            if config['models']['object_detection']['yolov8']['enabled']:
+                enabled_models.append('yolov8')
+            if config['models']['object_detection']['retinanet']['enabled']:
+                enabled_models.append('retinanet')
+            if config['models']['object_detection']['efficientdet']['enabled']:
+                enabled_models.append('efficientdet')
+            
+            if config['models']['domain_adaptation']['dann']['enabled']:
+                enabled_models.append('dann')
+            if config['models']['domain_adaptation']['coral']['enabled']:
+                enabled_models.append('coral')
+            if config['models']['domain_adaptation']['mmd']['enabled']:
+                enabled_models.append('mmd')
+            
+            model_ensemble = create_model_ensemble(
+                config=config,
+                model_types=enabled_models,
+                ensemble_method=config['models']['object_detection']['ensemble']['method']
+            )
+            
+            # Initialize domain adaptation pipeline
+            adaptation_methods = []
+            if config['models']['domain_adaptation']['dann']['enabled']:
+                adaptation_methods.append('dann')
+            if config['models']['domain_adaptation']['coral']['enabled']:
+                adaptation_methods.append('coral')
+            if config['models']['domain_adaptation']['mmd']['enabled']:
+                adaptation_methods.append('mmd')
+            
+            if adaptation_methods:
+                domain_adaptation_pipeline = create_domain_adaptation_pipeline(
+                    config=config,
+                    adaptation_methods=adaptation_methods
+                )
+            
+            logger.info("✅ Multi-Model API initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize models: {e}")
+            model_ensemble = None
+            domain_adaptation_pipeline = None
+    else:
+        logger.warning("⚠️ Models not available - running in limited mode")
+        model_ensemble = None
+        domain_adaptation_pipeline = None
 
 
 @app.get("/health")
@@ -501,6 +535,124 @@ async def benchmark_models():
     except Exception as e:
         logger.error(f"Error in model benchmarking: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Benchmarking error: {str(e)}")
+
+
+@app.post("/config/update")
+async def update_configuration(
+    architecture: str = Query("yolov8", description="Object detection architecture"),
+    num_classes: int = Query(10, description="Number of classes"),
+    confidence_threshold: float = Query(0.5, description="Confidence threshold"),
+    nms_threshold: float = Query(0.4, description="NMS threshold"),
+    lambda_grl: float = Query(1.0, description="Domain adaptation lambda"),
+    latent_dim: int = Query(256, description="Autoencoder latent dimension"),
+    learning_rate: float = Query(0.001, description="Learning rate"),
+    batch_size: int = Query(8, description="Batch size"),
+    epochs: int = Query(100, description="Training epochs"),
+    patch_detection_enabled: bool = Query(True, description="Enable patch detection"),
+    patch_size_width: int = Query(192, description="Patch width"),
+    patch_size_height: int = Query(192, description="Patch height"),
+    overlap: float = Query(0.2, description="Patch overlap")
+):
+    """Update configuration and reinitialize models"""
+    global config, model_ensemble, domain_adaptation_pipeline
+    
+    try:
+        logger.info("🔧 Updating configuration with new settings...")
+        
+        # Update configuration
+        config['models']['object_detection']['architecture'] = architecture
+        config['models']['object_detection']['num_classes'] = num_classes
+        config['models']['object_detection']['confidence_threshold'] = confidence_threshold
+        config['models']['object_detection']['nms_threshold'] = nms_threshold
+        config['models']['domain_adaptation']['lambda_grl'] = lambda_grl
+        config['models']['autoencoder']['latent_dim'] = latent_dim
+        config['training']['learning_rate'] = learning_rate
+        config['training']['batch_size'] = batch_size
+        config['training']['epochs'] = epochs
+        config['inference']['patch_detection']['enabled'] = patch_detection_enabled
+        config['inference']['patch_detection']['patch_size'] = [patch_size_width, patch_size_height]
+        config['inference']['patch_detection']['overlap'] = overlap
+        
+        logger.info(f"📊 New config: {json.dumps(config, indent=2)}")
+        
+        # Reinitialize models with new configuration
+        enabled_models = []
+        if config['models']['object_detection']['yolov8']['enabled']:
+            enabled_models.append('yolov8')
+        if config['models']['object_detection']['retinanet']['enabled']:
+            enabled_models.append('retinanet')
+        if config['models']['object_detection']['efficientdet']['enabled']:
+            enabled_models.append('efficientdet')
+        
+        if config['models']['domain_adaptation']['dann']['enabled']:
+            enabled_models.append('dann')
+        if config['models']['domain_adaptation']['coral']['enabled']:
+            enabled_models.append('coral')
+        if config['models']['domain_adaptation']['mmd']['enabled']:
+            enabled_models.append('mmd')
+        
+        # Reinitialize model ensemble
+        model_ensemble = create_model_ensemble(
+            config=config,
+            model_types=enabled_models,
+            ensemble_method=config['models']['object_detection']['ensemble']['method']
+        )
+        
+        logger.info(f"🧠 Reinitializing models with {num_classes} classes...")
+        
+        # Reinitialize domain adaptation pipeline
+        adaptation_methods = []
+        if config['models']['domain_adaptation']['dann']['enabled']:
+            adaptation_methods.append('dann')
+        if config['models']['domain_adaptation']['coral']['enabled']:
+            adaptation_methods.append('coral')
+        if config['models']['domain_adaptation']['mmd']['enabled']:
+            adaptation_methods.append('mmd')
+        
+        if adaptation_methods:
+            domain_adaptation_pipeline = create_domain_adaptation_pipeline(
+                config=config,
+                adaptation_methods=adaptation_methods
+            )
+        
+        logger.info("✅ Configuration updated and models reinitialized successfully")
+        
+        # Save updated configuration
+        config_path = Path("config/config.yaml")
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        
+        return {
+            "status": "success",
+            "message": "Configuration updated and models reinitialized",
+            "updated_config": {
+                "architecture": architecture,
+                "num_classes": num_classes,
+                "confidence_threshold": confidence_threshold,
+                "nms_threshold": nms_threshold,
+                "lambda_grl": lambda_grl,
+                "patch_detection_enabled": patch_detection_enabled,
+                "patch_size": [patch_size_width, patch_size_height],
+                "overlap": overlap
+            },
+            "models_reinitialized": len(enabled_models),
+            "domain_adaptation_enabled": len(adaptation_methods) > 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Configuration update failed: {str(e)}")
+
+
+@app.get("/config")
+async def get_current_configuration():
+    """Get current configuration"""
+    return {
+        "status": "success",
+        "config": config,
+        "models_loaded": len(model_ensemble.models) if model_ensemble else 0,
+        "domain_adaptation_enabled": domain_adaptation_pipeline is not None
+    }
 
 
 # Background task functions
