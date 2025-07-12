@@ -1,0 +1,29 @@
+Autonomous Driving Perception Project Datasets:
+
+1. KITTI Dataset (Real-world driving data from Germany):
+   - Official Website: http://www.cvlibs.net/datasets/kitti/
+   - Object Detection: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=2d
+   - Raw Data: http://www.cvlibs.net/datasets/kitti/raw_data.php
+   - Description: Real-world autonomous driving data with camera and LiDAR
+
+2. CARLA Simulator Dataset (High-fidelity simulation data):
+   - Official Website: https://carla.org/
+   - Documentation: https://carla.readthedocs.io/en/latest/
+   - GitHub: https://github.com/carla-simulator/carla
+   - Description: Open-source autonomous driving simulator with synthetic data
+
+3. nuScenes Dataset (Multi-modal autonomous driving data):
+   - Official Website: https://www.nuscenes.org/
+   - Dataset Download: https://www.nuscenes.org/download
+   - GitHub: https://github.com/nutonomy/nuscenes-devkit
+   - Description: Large-scale autonomous driving dataset with 360° sensor data
+
+4. AirSim Dataset (Microsoft simulation platform):
+   - Official Website: https://microsoft.github.io/AirSim/
+   - GitHub: https://github.com/Microsoft/AirSim
+   - Documentation: https://microsoft.github.io/AirSim/docs/
+   - Description: Photorealistic simulation for autonomous vehicles
+
+5. Comprehensive Dataset Collection:
+   - Reference: https://github.com/suryagutta/Autonomous-Vehicles-Datasets
+   - Description: Comprehensive list of autonomous vehicle datasets with multiple sensor modalities

@@ -427,31 +427,31 @@ class VideoProcessor:
         print(f"📤 Output will be saved to: {output_path}")
         
         # Open video
-        cap = cv2.VideoCapture(input_path)
-        if not cap.isOpened():
+cap = cv2.VideoCapture(input_path)
+if not cap.isOpened():
             print("❌ Error: Cannot open input video.")
             return
-        
-        # Get video properties
+
+# Get video properties
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         print(f"📊 Video info: {width}x{height} @ {fps:.1f}fps, {total_frames} frames")
-        
-        # Video writer
+
+# Video writer
         fourcc = cv2.VideoWriter_fourcc(*self.config['video']['output_format'])
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-        
+
         # Processing loop
         start_time = time.time()
-        
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
             frame_start = time.time()
             
             # Object detection
@@ -515,7 +515,7 @@ class VideoProcessor:
             ret, frame = cap.read()
             if not ret:
                 print("❌ Error reading from camera")
-                break
+        break
             
             start_time = time.time()
             
@@ -552,9 +552,9 @@ class VideoProcessor:
                 print(f"📸 Frame saved to: {save_path}")
             
             frame_count += 1
-        
-        cap.release()
-        cv2.destroyAllWindows()
+
+cap.release()
+cv2.destroyAllWindows()
         print("✅ Real-time processing stopped")
 
 
